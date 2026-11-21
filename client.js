@@ -333,6 +333,13 @@ window.__ModuleLoader__.load({
       const panelRef = useRef(null)
       const titleRef = useRef(null)
 
+      // Focus the title only when the form target changes (open / switch row),
+      // never on field edits — `form` itself is replaced on every keystroke.
+      const formKey = form === null ? null : (form.id ?? 'new')
+      useEffect(() => {
+        if (formKey !== null && titleRef.current) titleRef.current.focus()
+      }, [formKey])
+
       const panelWidth = 360
       const left = Math.max(8, Math.min(anchorRect.left, window.innerWidth - panelWidth - 8))
       const bottom = Math.max(8, window.innerHeight - anchorRect.top + 8)
@@ -340,10 +347,6 @@ window.__ModuleLoader__.load({
       useEffect(() => {
         void store.refresh()
       }, [])
-
-      useEffect(() => {
-        if (form && titleRef.current) titleRef.current.focus()
-      }, [form])
 
       useEffect(() => {
         const onKey = (e) => { if (e.key === 'Escape') onClose() }

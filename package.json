@@ -1,6 +1,6 @@
 {
   "name": "dsh-suggestions-reply",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "description": "Follow-up reply capsules below each completed answer and reusable message templates above the composer.",
   "license": "MIT",
