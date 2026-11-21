@@ -37,7 +37,8 @@
     "locale/*.json",
     "icon.svg",
     "README.md",
-    "README.zh.md"
+    "README.zh.md",
+    "docs/screenshot.webp"
   ],
   "dsh": {
     "bundle": { "patch": "./cordis.patch.yml" },

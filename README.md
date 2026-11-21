@@ -7,6 +7,8 @@ A [DeepSeek Harness](https://www.npmjs.com/package/@deepseek-ai/dsh) plugin that
 1. **Follow-up capsules** — 1–3 clickable follow-up messages below each completed answer, generated from the answer text and phrased in your voice. Click one to send it as an ordinary message.
 2. **Message templates** — a chip row above the composer for reusable phrases and frequent commands. Each template is configurable as *fill the input box* or *send directly* on click.
 
+![Follow-up capsules below an answer and the template row above the composer](docs/screenshot.webp)
+
 ## Follow-up capsules
 
 After a turn completes, the plugin makes one auxiliary model request that reads the turn's user prompt and answer, then returns 1–3 short suggestions anchored to what the answer actually said (a concrete next step, clarification, extension, or verification). They render as brand-tinted pills below the answer.
@@ -86,6 +88,7 @@ client.js         Client half: capsule row, template dock, manager popover
 cordis.patch.yml  Bundle patch (one plugin row)
 locale/           Plugin Manager display metadata (en, zh)
 icon.svg          Plugin icon
+docs/             README screenshot
 ```
 
 ```bash
