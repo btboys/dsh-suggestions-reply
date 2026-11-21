@@ -4,6 +4,14 @@
   "type": "module",
   "description": "Follow-up reply capsules below each completed answer and reusable message templates above the composer.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/btboys/dsh-suggestions-reply.git"
+  },
+  "homepage": "https://github.com/btboys/dsh-suggestions-reply#readme",
+  "bugs": {
+    "url": "https://github.com/btboys/dsh-suggestions-reply/issues"
+  },
   "keywords": [
     "dsh",
     "dsh-plugin",
