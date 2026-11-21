@@ -1,0 +1,98 @@
+# Suggestions & reply templates
+
+English | [中文](README.zh.md)
+
+A [DeepSeek Harness](https://www.npmjs.com/package/@deepseek-ai/dsh) plugin that adds two conversation surfaces:
+
+1. **Follow-up capsules** — 1–3 clickable follow-up messages below each completed answer, generated from the answer text and phrased in your voice. Click one to send it as an ordinary message.
+2. **Message templates** — a chip row above the composer for reusable phrases and frequent commands. Each template is configurable as *fill the input box* or *send directly* on click.
+
+## Follow-up capsules
+
+After a turn completes, the plugin makes one auxiliary model request that reads the turn's user prompt and answer, then returns 1–3 short suggestions anchored to what the answer actually said (a concrete next step, clarification, extension, or verification). They render as brand-tinted pills below the answer.
+
+- **Click to send**: a capsule goes through the composer's normal submission path — idle sessions send immediately; busy sessions use your configured Queue/Steer delivery.
+- **Latest turn only**: capsules show for the latest completed turn while the session is idle, and disappear when a new turn starts. Scrolling back shows no historical capsules.
+- **Route**: the auxiliary request uses the session's current model by default; set `provider` and `model` together in the row config to pin a different route.
+- **No log pollution**: suggestions are an in-memory cache per session/turn, never written to the session log. After a restart they regenerate on demand when the latest turn is viewed.
+- **Skipped turns**: interrupted, errored, max-token, and subagent turns get no capsules. A failed or timed-out auxiliary request simply shows nothing.
+
+## Message templates
+
+The chip row above the composer lists your saved templates, aligned with the conversation column.
+
+- **Per-template click behavior** (`sendMode`):
+  - `fill` (default) — click inserts the text into the input box for manual editing and sending.
+  - `send` — click sends the text immediately as an ordinary message. Send-mode chips carry an ↑ arrow and a tinted border.
+- **Manage templates** popover: add, edit, reorder (↑/↓), and delete. Each row shows a 填入/发送 (Fill/Send) badge; the edit form has a segmented *On click* control.
+- **Live sync**: templates live in the Host's `suggestions_reply` storage domain (`$DSH_HOME/storages/suggestions_reply.json`), not in browser storage. Every page connected to the same Host — desktop window, browser tabs, remote Web UI — shares them and updates live over SSE; window focus also triggers a catch-up refresh. A separately launched Host process keeps its own state.
+- **Durable**: templates survive restarts and plugin upgrades. Existing templates without `sendMode` migrate to `fill` automatically.
+- **Limits**: 50 templates by default (`maxTemplates`), title 1–60 chars, text 1–4000 chars.
+
+### Agent tool
+
+The agent manages the same templates through `message_templates` (same Host operations as the UI):
+
+| Action | Arguments | Result |
+|---|---|---|
+| `list` | — | all templates with ids, ordered |
+| `add` | `title`, `text`, optional `sendMode` | the created template |
+| `update` | `id`, optional `title` / `text` / `sendMode` | the updated template |
+| `remove` | `id` | `{ removed: true }` |
+
+Call `list` before `update`/`remove` to read exact ids and current content. Failures return `{ ok: false, error }`.
+
+## Installation
+
+Requires DSH `>=0.2.1-rc.3 <0.3.0` and Node `>=22`.
+
+- **From npm**: in DSH, ask the agent to install the bundle `dsh-suggestions-reply`, or use **Plugins → Add plugin** with the package name.
+- **From a local checkout**: **Plugins → Add plugin** with the absolute directory path, or `plugin_manager` `install_bundle` with that path.
+
+The plugin activates immediately; both surfaces appear in every session. Disable or remove it from **Plugins** at any time — stored templates are kept.
+
+## Row config
+
+Edit the plugin row's config on its **Plugins** page, or override it in the profile's `cordis.patch.yml`:
+
+| Field | Default | Meaning |
+|---|---|---|
+| `enabled` | `true` | Generate and show follow-up capsules. |
+| `maxSuggestions` | `3` | Capsule count per turn (1–3). |
+| `provider` / `model` | empty | Auxiliary route; empty follows the session's current model. Set both together. |
+| `maxOutputTokens` | `300` | Output token cap of the auxiliary request. |
+| `timeoutMs` | `20000` | Auxiliary request deadline (ms). |
+| `maxInputChars` | `6000` | Answer-text budget fed to the auxiliary request (tail kept). |
+| `templatesEnabled` | `true` | Template row, manager popover, and agent tool. |
+| `maxTemplates` | `50` | Template count cap. |
+
+## Data & privacy
+
+- The auxiliary request sends the turn's first user prompt (≤2000 chars) and the answer's final text (≤`maxInputChars`) to the session's model provider — or the route you pin. It is tagged with purpose `suggestions-reply` and is not recorded in the session log.
+- Templates are stored locally under `$DSH_HOME/storages/`. Nothing else leaves your machine.
+- Turning the plugin off removes both surfaces and the tool; template data is retained.
+
+## Limitations
+
+- Capsule quality depends on the auxiliary model; generic answers yield generic suggestions.
+- One auxiliary request per completed turn adds a small token cost (capped by `maxOutputTokens`).
+- Cross-process live sync (two separate Host processes) is not provided; share one Host's Web URL instead.
+
+## Development
+
+```text
+index.js          Host half: projection, generation, storage domain, RPC + SSE routes, agent tool
+client.js         Client half: capsule row, template dock, manager popover
+cordis.patch.yml  Bundle patch (one plugin row)
+locale/           Plugin Manager display metadata (en, zh)
+icon.svg          Plugin icon
+```
+
+```bash
+node --check index.js && node --check client.js   # syntax
+npm pack --dry-run                                 # verify the packed file list
+```
+
+## License
+
+[MIT](LICENSE)

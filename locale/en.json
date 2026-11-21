@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Suggestions & reply templates",
+    "description": "After each completed answer, shows 1-3 follow-up capsules anchored to the answer text below the turn; clicking one sends it as an ordinary message. Above the composer, a template row lists saved messages; each template's click behavior is configurable as Fill input box (default) or Send directly, and the Manage templates button adds, edits, reorders and deletes templates (also available to the agent through the message_templates tool). Each completed turn triggers one auxiliary model request using the session's current model (or the configured provider/model) to generate the capsules; suggestions are cached per session and not written to the session log. Templates are stored locally in the suggestions_reply storage domain. Turning the plugin off removes both surfaces; existing templates are kept."
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "name": "dsh-suggestions-reply",
+  "title": {
+    "en": "Suggestions & reply templates",
+    "zh": "追问胶囊与消息模板"
+  },
+  "description": {
+    "en": "Follow-up capsules below each completed answer, generated from the answer text and sent as ordinary messages on click; a reusable message-template row above the composer with per-template fill-or-send behavior, live sync across pages, and an agent management tool.",
+    "zh": "每轮回答完成后在回答下方生成 1–3 条锚定正文、用户口吻的追问胶囊，点击即作为普通消息发送；输入框上方提供常用消息模板行，每条模板可设「填入输入框」或「直接发送」，同一 Host 的多页面实时同步，Agent 可用 message_templates 工具管理。"
+  },
+  "author": "夏悸",
+  "homepage": "https://github.com/btboys/dsh-suggestions-reply#readme",
+  "repository": {
+    "url": "https://github.com/btboys/dsh-suggestions-reply"
+  },
+  "metadata": {
+    "category": "assistant",
+    "keywords": [
+      "dsh",
+      "dsh-plugin",
+      "deepseek-harness",
+      "cordis",
+      "suggestions",
+      "follow-up",
+      "reply",
+      "templates",
+      "composer"
+    ]
+  },
+  "versions": [
+    {
+      "version": "0.1.0",
+      "publishTimestamp": 1795232554,
+      "source": {
+        "type": "npm"
+      },
+      "engines": {
+        "dsh": ">=0.2.1-rc.3 <0.3.0",
+        "node": ">=22"
+      }
+    }
+  ],
+  "icon": "https://dsh.gson.cn/icons/dsh-suggestions-reply.svg"
+}
