@@ -48,10 +48,33 @@ Agent 通过 `message_templates` 工具管理同一份模板（与 UI 共用同�
 
 要求 DSH `>=0.2.1-rc.3 <0.3.0`、Node `>=22`。
 
-- **npm 安装**：在 DSH 中让 Agent 安装 bundle `dsh-suggestions-reply`，或在 **Plugins → Add plugin** 填入包名。
-- **本地目录安装**：**Plugins → Add plugin** 填入绝对目录路径，或用 `plugin_manager` 的 `install_bundle` 指向该路径。
+### 通过插件仓库安装（推荐）
 
-插件即时激活，两个界面在所有会话生效。可随时在 **Plugins** 中禁用或卸载——已保存的模板会保留。
+本插件收录于[夏悸的 DSH 插件仓库](https://dsh.gson.cn/)，DSH 的 **Discover（发现）** 页直接读取该共享索引：
+
+1. **开启自定义索引**：打开 **Plugins（插件）** 页，在 **Experimental plugins（实验性插件）** 中启用 **Custom plugin indexes（自定义插件索引）**。
+2. **添加一次索引**：切到 **Discover（发现）** 页，添加索引地址 `https://dsh.gson.cn/index.json`。只需设置一次，仓库内所有插件共用。
+3. **按需安装**：在 Discover 中找到「追问胶囊与消息模板」，确认显示的 DSH 兼容版本后安装；后续更新同样由此进入。
+
+### 直接安装
+
+- **让 Agent 安装**：在任意 DSH 会话中让 Agent 安装 bundle `dsh-suggestions-reply`（其通过 `plugin_manager` 的 `install_bundle` 执行）。
+- **插件页安装**：**Plugins → Add plugin** 填入 npm 包名 `dsh-suggestions-reply`，或本地 checkout 的绝对目录路径。
+
+### 安装之后
+
+插件即时激活，两个界面在所有会话生效。可在插件行的配置页调整行为（见[插件行配置](#插件行配置)）。随时在 **Plugins** 中禁用或卸载——已保存的模板会保留。
+
+## 关于插件仓库（dsh.gson.cn）
+
+[https://dsh.gson.cn/](https://dsh.gson.cn/) 是由夏悸与社区开发者共同维护的插件展示站与索引：
+
+- **一个索引，多款插件**：站点提供 `index.json`（format 1），收录九款插件——顾问评审、消息通知、部署面板、云效进度、等待小鲸鱼、本插件及社区作品。DSH Discover 从中浏览并安装，各插件彼此独立、按需安装。
+- **兼容先行**：每个版本声明 `engines.dsh` / `engines.node` 范围，Discover 在安装前显示是否适配你正在运行的 DSH。
+- **源码公开**：每条目录链接公开仓库与 npm 包；版本与发布时间来自 npm，装到的就是作者发布的产物。
+- **本插件条目**：分类「AI 助手」，图标与截图由站点托管，安装源为 npm `dsh-suggestions-reply`。
+
+在 Discover 中添加的索引地址始终是 `https://dsh.gson.cn/index.json`。
 
 ## 插件行配置
 

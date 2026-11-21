@@ -48,10 +48,48 @@ Call `list` before `update`/`remove` to read exact ids and current content. Fail
 
 Requires DSH `>=0.2.1-rc.3 <0.3.0` and Node `>=22`.
 
-- **From npm**: in DSH, ask the agent to install the bundle `dsh-suggestions-reply`, or use **Plugins → Add plugin** with the package name.
-- **From a local checkout**: **Plugins → Add plugin** with the absolute directory path, or `plugin_manager` `install_bundle` with that path.
+### Via the plugin repository (recommended)
 
-The plugin activates immediately; both surfaces appear in every session. Disable or remove it from **Plugins** at any time — stored templates are kept.
+This plugin is listed in [Xia Ji's DSH plugin repository](https://dsh.gson.cn/), a shared
+index that DSH's **Discover** page reads directly:
+
+1. **Enable custom indexes**: open **Plugins**, find **Experimental plugins**, and turn on
+   **Custom plugin indexes**.
+2. **Add the index once**: switch to the **Discover** tab and add the index address
+   `https://dsh.gson.cn/index.json`. This is a one-time setup shared by every plugin in the
+   repository.
+3. **Install**: locate **Suggestions & reply templates** (追问胶囊与消息模板) in Discover,
+   confirm the shown DSH compatibility, and install. Updates arrive the same way.
+
+### Direct install
+
+- **Ask the agent**: in any DSH session, ask it to install the bundle `dsh-suggestions-reply`
+  (it uses `plugin_manager` `install_bundle`).
+- **Plugins UI**: **Plugins → Add plugin** with the npm package name `dsh-suggestions-reply`,
+  or with the absolute path of a local checkout.
+
+### After installation
+
+The plugin activates immediately; both surfaces appear in every session. Tune it on the
+plugin row's config page (see [Row config](#row-config)). Disable or remove it from
+**Plugins** at any time — stored templates are kept.
+
+## About the plugin repository (dsh.gson.cn)
+
+[https://dsh.gson.cn/](https://dsh.gson.cn/) is a plugin showcase and index maintained by
+夏悸 together with community developers:
+
+- **One index, many plugins**: the site serves `index.json` (format 1) listing nine plugins —
+  advisors, notify, deployment panel, Yunxiao board, whale break, this plugin, and community
+  entries. DSH Discover browses and installs from it; each plugin installs independently.
+- **Compatibility first**: every version declares its `engines.dsh` / `engines.node` range,
+  and Discover shows whether it fits your running DSH before you install.
+- **Open source**: each entry links to its public repository and npm package; versions and
+  publish times come from npm, so what you install is what the author published.
+- **This plugin's entry**: category *AI assistant*, icon and screenshots served from the
+  site, install source npm `dsh-suggestions-reply`.
+
+The index address to add in Discover is always `https://dsh.gson.cn/index.json`.
 
 ## Row config
 
