@@ -100,6 +100,7 @@ window.__ModuleLoader__.load({
   display: flex; align-items: center; gap: 6px; padding: 0 0 6px; overflow-x: auto; scrollbar-width: thin;
   max-width: calc(var(--dsh-composer-card-max-width, 952px) - 4 * var(--dsh-composer-dock-inset, 8px));
   margin: 0 auto;
+  justify-content: safe flex-end;
 }
 .sr-chip {
   flex: none; display: inline-flex; align-items: center; gap: 5px;
