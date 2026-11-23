@@ -321,7 +321,28 @@ export async function apply(ctx, config) {
   /* ---- templates: one implementation shared by the RPC route and the agent tool ---- */
 
   let domainPromise
-  const ensureDomain = () => (domainPromise ??= ctx.storageDomain.open(templateSpec))
+  /**
+   * Open the template domain once per activation. A plugin reload races the
+   * previous activation's async domain teardown (`already-open` until the name
+   * frees), so retry that case with backoff; reset the cached promise on any
+   * failure so a later call can try again instead of replaying the rejection.
+   */
+  const ensureDomain = () => (domainPromise ??= (async () => {
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        return await ctx.storageDomain.open(templateSpec)
+      } catch (error) {
+        if (error?.code === 'already-open' && attempt < 12 && !disposed) {
+          await new Promise((resolve) => setTimeout(resolve, 150 * (attempt + 1)))
+          continue
+        }
+        throw error
+      }
+    }
+  })().catch((error) => {
+    domainPromise = undefined
+    throw error
+  }))
 
   const templateTable = async () => (await ensureDomain()).table('templates')
 
