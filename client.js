@@ -342,7 +342,9 @@ window.__ModuleLoader__.load({
       }, [formKey])
 
       const panelWidth = 360
-      const left = Math.max(8, Math.min(anchorRect.left, window.innerWidth - panelWidth - 8))
+      // Right-align the panel with the manage button (the chip row is right-aligned);
+      // clamp so the panel never leaves the viewport on narrow windows.
+      const right = Math.max(8, Math.min(window.innerWidth - anchorRect.right, window.innerWidth - panelWidth - 8))
       const bottom = Math.max(8, window.innerHeight - anchorRect.top + 8)
 
       useEffect(() => {
@@ -420,7 +422,7 @@ window.__ModuleLoader__.load({
 
       const panel = h('div', {
         className: 'sr-panel', ref: panelRef, role: 'dialog', 'aria-label': t('panelTitle'),
-        style: { left, bottom },
+        style: { right, bottom },
       },
         h('div', { className: 'sr-panel-head' },
           h('span', { className: 'sr-panel-title' }, t('panelTitle')),
