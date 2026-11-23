@@ -322,19 +322,30 @@ export async function apply(ctx, config) {
 
   let domainPromise
   /**
-   * Open the template domain once per activation. A plugin reload races the
-   * previous activation's async domain teardown (`already-open` until the name
-   * frees), so retry that case with backoff; reset the cached promise on any
-   * failure so a later call can try again instead of replaying the rejection.
+   * Open the template domain once per activation. The caller owns the handle
+   * (the facility only closes leftovers on its own unmount), so a reload can
+   * meet `already-open`: either a pending close from the previous activation
+   * (retry until the name frees) or a handle leaked by an older version that
+   * never closed it (adopt the live domain via get()). Reset the cached
+   * promise on any failure so a later call can try again.
    */
   const ensureDomain = () => (domainPromise ??= (async () => {
     for (let attempt = 0; ; attempt += 1) {
       try {
         return await ctx.storageDomain.open(templateSpec)
       } catch (error) {
-        if (error?.code === 'already-open' && attempt < 12 && !disposed) {
-          await new Promise((resolve) => setTimeout(resolve, 150 * (attempt + 1)))
-          continue
+        if (error?.code === 'already-open' && !disposed) {
+          const existing = ctx.storageDomain.get(templateSpec.name)
+          if (existing !== undefined) {
+            try {
+              existing.table('templates').keys()
+              return existing
+            } catch {}
+          }
+          if (attempt < 12) {
+            await new Promise((resolve) => setTimeout(resolve, 150 * (attempt + 1)))
+            continue
+          }
         }
         throw error
       }
@@ -571,5 +582,8 @@ export async function apply(ctx, config) {
     disposed = true
     for (const id of [...pending.keys()]) abortPending(id)
     cache.clear()
+    const opening = domainPromise
+    domainPromise = undefined
+    if (opening !== undefined) opening.then((domain) => domain.close()).catch(() => {})
   }, 'suggestions-reply: generation lifecycle')
 }
