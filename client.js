@@ -46,6 +46,7 @@ window.__ModuleLoader__.load({
       hotkeyNeedMod: '需包含 Ctrl、Alt 或 ⌘',
       hotkeyUnsupported: '不支持的按键',
       hotkeyConflict: '与现有快捷键冲突',
+      hotkeyReserved: '该组合为系统保留，换一个',
       hotkeySend: '发送模板',
       fillHint: '点击填入输入框',
       sendHint: '点击作为消息发送',
@@ -81,6 +82,7 @@ window.__ModuleLoader__.load({
       hotkeyNeedMod: 'Must include Ctrl, Alt or ⌘',
       hotkeyUnsupported: 'Unsupported key',
       hotkeyConflict: 'Conflicts with an existing shortcut',
+      hotkeyReserved: 'Reserved by the system; pick another',
       hotkeySend: 'Send template',
       fillHint: 'Click to fill the input box',
       sendHint: 'Click to send as a message',
@@ -579,7 +581,13 @@ window.__ModuleLoader__.load({
             : h('div', { className: 'sr-list' }, rows),
         Object.keys(snap.hotkeyErrors ?? {}).length > 0
           ? h('div', { className: 'sr-error', role: 'alert' },
-              snap.list.filter((x) => (snap.hotkeyErrors ?? {})[x.id]).map((x) => `${x.title}: ${t('hotkeyConflict')}`).join('；'))
+              snap.list.filter((x) => (snap.hotkeyErrors ?? {})[x.id]).map((x) => {
+                const reason = (snap.hotkeyErrors ?? {})[x.id]
+                const text = reason === 'reserved' ? t('hotkeyReserved')
+                  : reason.startsWith('Conflicting') ? t('hotkeyConflict')
+                  : reason
+                return `${x.title}: ${text}`
+              }).join('；'))
           : null,
         error ? h('div', { className: 'sr-error', role: 'alert' }, error) : null)
 
@@ -713,8 +721,30 @@ window.__ModuleLoader__.load({
             for (const item of snap.list) {
               const binding = hotkeyToBinding(item.hotkey)
               if (binding === null) continue
+              // Platform rules differ (desktop is permissive, Web reserves combos
+              // like Alt+digits on macOS). Probe each profile with the registry's
+              // own validation and declare the binding only where it is accepted.
               const defaults = {}
-              for (const profile of PROFILES) defaults[profile] = binding
+              for (const profile of PROFILES) {
+                const probeId = `suggestions-reply.probe.${item.id}.${profile.replace(':', '.')}`
+                try {
+                  const off = shortcuts.register({
+                    id: probeId,
+                    label: () => '',
+                    aliases: [],
+                    defaults: { [profile]: binding },
+                    regions: ['page'],
+                    modals: [],
+                    resolve: () => ({ status: 'pass' }),
+                  })
+                  off()
+                  defaults[profile] = binding
+                } catch {}
+              }
+              if (Object.keys(defaults).length === 0) {
+                errors[item.id] = 'reserved'
+                continue
+              }
               try {
                 const off = shortcuts.register({
                   id: `suggestions-reply.send.${item.id}`,
