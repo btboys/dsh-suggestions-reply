@@ -40,6 +40,13 @@ window.__ModuleLoader__.load({
       modeSend: '直接发送',
       modeFillShort: '填入',
       modeSendShort: '发送',
+      hotkeyLabel: '快捷键',
+      hotkeyPh: '点击后按下组合键',
+      hotkeyClear: '清除快捷键',
+      hotkeyNeedMod: '需包含 Ctrl、Alt 或 ⌘',
+      hotkeyUnsupported: '不支持的按键',
+      hotkeyConflict: '与现有快捷键冲突',
+      hotkeySend: '发送模板',
       fillHint: '点击填入输入框',
       sendHint: '点击作为消息发送',
       busy: '发送中，暂不可填入',
@@ -68,6 +75,13 @@ window.__ModuleLoader__.load({
       modeSend: 'Send directly',
       modeFillShort: 'Fill',
       modeSendShort: 'Send',
+      hotkeyLabel: 'Shortcut',
+      hotkeyPh: 'Click, then press a combo',
+      hotkeyClear: 'Clear shortcut',
+      hotkeyNeedMod: 'Must include Ctrl, Alt or ⌘',
+      hotkeyUnsupported: 'Unsupported key',
+      hotkeyConflict: 'Conflicts with an existing shortcut',
+      hotkeySend: 'Send template',
       fillHint: 'Click to fill the input box',
       sendHint: 'Click to send as a message',
       busy: 'Sending; filling is unavailable',
@@ -172,6 +186,13 @@ window.__ModuleLoader__.load({
   background: color-mix(in srgb, var(--dsw-alias-brand-primary) 14%, transparent);
   color: var(--dsw-alias-brand-primary);
 }
+.sr-kbd {
+  flex: none; padding: 0 5px; border-radius: 4px; font-size: 10px; line-height: 1.6;
+  border: 1px solid var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-layer-2);
+  color: var(--dsw-alias-label-secondary); font-family: inherit; white-space: nowrap;
+}
+.sr-hotkey-input { cursor: pointer; }
+.sr-hotkey-input:focus { border-color: var(--dsw-alias-brand-primary); outline: none; }
 .sr-btn {
   padding: 4px 12px; border-radius: 6px; border: 1px solid var(--dsw-alias-border-l1);
   background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary);
@@ -273,6 +294,49 @@ window.__ModuleLoader__.load({
     const sendIcon = h('svg', { width: 11, height: 11, viewBox: '0 0 16 16', fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, 'aria-hidden': true },
       h('path', { d: 'M8 13V3M4 7l4-4 4 4' }))
 
+    /* ---------------- hotkey helpers ---------------- */
+
+    const HOTKEY_NAMED = ['Escape', 'Tab', 'Enter', 'Backspace', 'Delete', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown']
+    const MOD_TOKEN = { control: 'Ctrl', meta: 'Meta', alt: 'Alt', shift: 'Shift' }
+    const MOD_ORDER = ['control', 'meta', 'alt', 'shift']
+
+    /** Canonical hotkey string -> physical ShortcutBinding, or null when invalid. */
+    function hotkeyToBinding(hotkey) {
+      if (!hotkey) return null
+      const parts = String(hotkey).split('+')
+      const key = parts[parts.length - 1]
+      const modifiers = []
+      for (const m of parts.slice(0, -1)) {
+        if (m === 'Ctrl') modifiers.push('control')
+        else if (m === 'Meta') modifiers.push('meta')
+        else if (m === 'Alt') modifiers.push('alt')
+        else if (m === 'Shift') modifiers.push('shift')
+        else return null
+      }
+      let code
+      if (/^[A-Z]$/.test(key)) code = `Key${key}`
+      else if (/^[0-9]$/.test(key)) code = `Digit${key}`
+      else if (/^F([1-9]|1[0-2])$/.test(key) || HOTKEY_NAMED.includes(key)) code = key
+      else return null
+      return { code, modifiers }
+    }
+
+    /** Physical key code + modifier flags -> canonical hotkey string, or null. */
+    function bindingToHotkey(code, modifiers) {
+      let key
+      if (/^Key[A-Z]$/.test(code)) key = code.slice(3)
+      else if (/^Digit[0-9]$/.test(code)) key = code.slice(5)
+      else if (/^F([1-9]|1[0-2])$/.test(code) || HOTKEY_NAMED.includes(code)) key = code
+      else return null
+      const mods = MOD_ORDER.filter((m) => modifiers.includes(m)).map((m) => MOD_TOKEN[m])
+      return [...mods, key].join('+')
+    }
+
+    /* The mounted dock provides the live composer; the manager popover suspends hotkeys. */
+    let activeSender = null
+    let managerOpen = false
+    let shortcutsService = null
+
     /* ---------------- follow-up capsules (turn tail) ---------------- */
 
     function SuggestionsTail(props) {
@@ -328,8 +392,9 @@ window.__ModuleLoader__.load({
     function TemplateManager({ t, anchorRect, onClose }) {
       const { createPortal } = require('react-dom')
       const snap = useSyncExternalStore(store.subscribe, store.getSnapshot)
-      const [form, setForm] = useState(null) // { id?, title, text }
+      const [form, setForm] = useState(null) // { id?, title, text, sendMode, hotkey }
       const [error, setError] = useState('')
+      const [hotkeyError, setHotkeyError] = useState('')
       const [busy, setBusy] = useState(false)
       const panelRef = useRef(null)
       const titleRef = useRef(null)
@@ -339,7 +404,47 @@ window.__ModuleLoader__.load({
       const formKey = form === null ? null : (form.id ?? 'new')
       useEffect(() => {
         if (formKey !== null && titleRef.current) titleRef.current.focus()
+        setHotkeyError('')
       }, [formKey])
+
+      useEffect(() => {
+        managerOpen = true
+        return () => { managerOpen = false }
+      }, [])
+
+      const recordHotkey = (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        if (['Control', 'Meta', 'Alt', 'Shift'].includes(e.key)) return
+        const mods = []
+        if (e.ctrlKey) mods.push('control')
+        if (e.metaKey) mods.push('meta')
+        if (e.altKey) mods.push('alt')
+        if (e.shiftKey) mods.push('shift')
+        if (!mods.some((m) => m !== 'shift')) {
+          setHotkeyError(t('hotkeyNeedMod'))
+          return
+        }
+        const hk = bindingToHotkey(e.code, mods)
+        if (hk === null) {
+          setHotkeyError(t('hotkeyUnsupported'))
+          return
+        }
+        if (shortcutsService !== null) {
+          try {
+            const desc = shortcutsService.describeBinding(hotkeyToBinding(hk))
+            if (desc.issue !== null || desc.conflicts.length > 0) {
+              setHotkeyError(t('hotkeyConflict'))
+              return
+            }
+          } catch {
+            setHotkeyError(t('hotkeyUnsupported'))
+            return
+          }
+        }
+        setHotkeyError('')
+        setForm((f) => (f === null ? f : { ...f, hotkey: hk }))
+      }
 
       const panelWidth = 360
       // Right-align the panel with the manage button (the chip row is right-aligned);
@@ -389,8 +494,8 @@ window.__ModuleLoader__.load({
           return
         }
         void run(async () => {
-          if (form.id) await rpc('templates.update', { id: form.id, title, text, sendMode: form.sendMode })
-          else await rpc('templates.add', { title, text, sendMode: form.sendMode })
+          if (form.id) await rpc('templates.update', { id: form.id, title, text, sendMode: form.sendMode, hotkey: form.hotkey })
+          else await rpc('templates.add', { title, text, sendMode: form.sendMode, hotkey: form.hotkey })
           setForm(null)
         })
       }
@@ -409,12 +514,13 @@ window.__ModuleLoader__.load({
           h('div', { className: 'sr-row-title', title: item.title },
             item.title,
             h('span', { className: 'sr-mode-badge' + (item.sendMode === 'send' ? ' sr-mode-send' : '') },
-              item.sendMode === 'send' ? t('modeSendShort') : t('modeFillShort'))),
+              item.sendMode === 'send' ? t('modeSendShort') : t('modeFillShort')),
+            item.hotkey ? h('kbd', { className: 'sr-kbd' }, item.hotkey) : null),
           h('div', { className: 'sr-row-text', title: item.text }, item.text)),
         h('div', { className: 'sr-row-actions' },
           h('button', { type: 'button', className: 'sr-icon-btn', title: t('up'), 'aria-label': t('up'), disabled: busy || index === 0, onClick: () => move(index, -1) }, upIcon),
           h('button', { type: 'button', className: 'sr-icon-btn', title: t('down'), 'aria-label': t('down'), disabled: busy || index === snap.list.length - 1, onClick: () => move(index, 1) }, downIcon),
-          h('button', { type: 'button', className: 'sr-icon-btn', title: t('edit'), 'aria-label': t('edit'), disabled: busy, onClick: () => setForm({ id: item.id, title: item.title, text: item.text, sendMode: item.sendMode === 'send' ? 'send' : 'fill' }) }, editIcon),
+          h('button', { type: 'button', className: 'sr-icon-btn', title: t('edit'), 'aria-label': t('edit'), disabled: busy, onClick: () => setForm({ id: item.id, title: item.title, text: item.text, sendMode: item.sendMode === 'send' ? 'send' : 'fill', hotkey: item.hotkey ?? '' }) }, editIcon),
           h('button', {
             type: 'button', className: 'sr-icon-btn sr-danger', title: t('del'), 'aria-label': t('del'), disabled: busy,
             onClick: () => void run(() => rpc('templates.remove', { id: item.id })),
@@ -447,15 +553,34 @@ window.__ModuleLoader__.load({
                     className: 'sr-seg-btn' + (form.sendMode === m ? ' sr-seg-on' : ''),
                     onClick: () => setForm({ ...form, sendMode: m }),
                   }, t(m === 'fill' ? 'modeFill' : 'modeSend'))))),
+              h('div', { className: 'sr-form-row' },
+                h('span', null, t('hotkeyLabel')),
+                h('div', { style: { display: 'flex', gap: 4, alignItems: 'center' } },
+                  h('input', {
+                    className: 'sr-input sr-hotkey-input', readOnly: true, value: form.hotkey || '',
+                    placeholder: t('hotkeyPh'), 'aria-label': t('hotkeyLabel'),
+                    style: { width: 170, textAlign: 'center' },
+                    onKeyDown: recordHotkey,
+                    onFocus: () => { if (shortcutsService !== null) void shortcutsService.recording(true).catch(() => {}) },
+                    onBlur: () => { if (shortcutsService !== null) void shortcutsService.recording(false).catch(() => {}) },
+                  }),
+                  form.hotkey
+                    ? h('button', { type: 'button', className: 'sr-icon-btn', title: t('hotkeyClear'), 'aria-label': t('hotkeyClear'), onClick: () => { setForm({ ...form, hotkey: '' }); setHotkeyError('') } }, closeIcon)
+                    : null)),
+              hotkeyError ? h('div', { className: 'sr-error', role: 'alert' }, hotkeyError) : null,
               h('div', { className: 'sr-form-actions' },
                 h('button', { type: 'button', className: 'sr-btn', onClick: () => { setForm(null); setError('') } }, t('cancel')),
                 h('button', { type: 'button', className: 'sr-btn sr-primary', disabled: busy, onClick: submitForm }, form.id ? t('save') : t('add'))))
-          : h('button', { type: 'button', className: 'sr-manage-btn', style: { marginBottom: 8 }, onClick: () => setForm({ title: '', text: '', sendMode: 'fill' }) }, plusIcon, t('addTemplate')),
+          : h('button', { type: 'button', className: 'sr-manage-btn', style: { marginBottom: 8 }, onClick: () => setForm({ title: '', text: '', sendMode: 'fill', hotkey: '' }) }, plusIcon, t('addTemplate')),
         !snap.loaded
           ? h('div', { className: 'sr-empty' }, t('loading'))
           : snap.list.length === 0
             ? h('div', { className: 'sr-empty' }, t('empty'))
             : h('div', { className: 'sr-list' }, rows),
+        Object.keys(snap.hotkeyErrors ?? {}).length > 0
+          ? h('div', { className: 'sr-error', role: 'alert' },
+              snap.list.filter((x) => (snap.hotkeyErrors ?? {})[x.id]).map((x) => `${x.title}: ${t('hotkeyConflict')}`).join('；'))
+          : null,
         error ? h('div', { className: 'sr-error', role: 'alert' }, error) : null)
 
       return createPortal(panel, document.body)
@@ -470,6 +595,22 @@ window.__ModuleLoader__.load({
       const [open, setOpen] = useState(false)
       const [anchorRect, setAnchorRect] = useState(null)
       const manageRef = useRef(null)
+      const phaseRef = useRef(phase)
+      phaseRef.current = phase
+
+      useEffect(() => {
+        const sender = {
+          phase: () => phaseRef.current,
+          send: (text) => {
+            inputActions.setDraft(text)
+            inputActions.submit()
+          },
+        }
+        activeSender = sender
+        return () => {
+          if (activeSender === sender) activeSender = null
+        }
+      }, [inputActions])
 
       useEffect(() => {
         void store.refresh()
@@ -499,14 +640,18 @@ window.__ModuleLoader__.load({
       const editable = phase === 'plain'
       const chips = snap.list.map((item) => {
         const send = item.sendMode === 'send'
+        const hint = t(send ? 'sendHint' : 'fillHint')
+        const title = editable
+          ? `${hint}：${item.text}${item.hotkey ? `（${item.hotkey}）` : ''}`
+          : t('busy')
         return h('button', {
           key: item.id,
           type: 'button',
           className: 'sr-chip' + (send ? ' sr-chip-send' : ''),
           disabled: !editable,
-          title: editable ? `${t(send ? 'sendHint' : 'fillHint')}：${item.text}` : t('busy'),
+          title,
           onClick: () => fill(item),
-        }, send ? sendIcon : null, h('span', { className: 'sr-chip-text' }, item.title))
+        }, send ? sendIcon : null, h('span', { className: 'sr-chip-text' }, item.title), item.hotkey ? h('kbd', { className: 'sr-kbd' }, item.hotkey) : null)
       })
 
       return h(React.Fragment, null,
@@ -548,6 +693,68 @@ window.__ModuleLoader__.load({
           id: 'suggestions-reply-templates',
           order: 10,
         }, (props) => h(TemplatesDock, { ...props, t })))
+
+        /* Register one application shortcut per hotkey-bound template through the
+           host registry (conflict checks, native desktop interception, region
+           arbitration). Re-sync whenever the template list changes. */
+        shortcutsService = ctx.get('shortcuts') ?? null
+        if (shortcutsService !== null) {
+          const shortcuts = shortcutsService
+          const disposers = new Map()
+          let lastList = null
+          const PROFILES = ['desktop:macos', 'desktop:windows', 'desktop:linux', 'web:macos', 'web:windows', 'web:linux']
+          const sync = () => {
+            const snap = store.getSnapshot()
+            if (snap.list === lastList) return
+            lastList = snap.list
+            for (const off of disposers.values()) off()
+            disposers.clear()
+            const errors = {}
+            for (const item of snap.list) {
+              const binding = hotkeyToBinding(item.hotkey)
+              if (binding === null) continue
+              const defaults = {}
+              for (const profile of PROFILES) defaults[profile] = binding
+              try {
+                const off = shortcuts.register({
+                  id: `suggestions-reply.send.${item.id}`,
+                  label: () => {
+                    const cur = store.getSnapshot().list.find((x) => x.id === item.id)
+                    return `${t('hotkeySend')}「${cur ? cur.title : item.title}」`
+                  },
+                  aliases: [],
+                  defaults,
+                  regions: ['page', 'editable'],
+                  modals: [],
+                  resolve: () => {
+                    if (managerOpen) return { status: 'pass' }
+                    const sender = activeSender
+                    if (sender === null) return { status: 'pass' }
+                    if (sender.phase() !== 'plain') return { status: 'blocked', reason: 'busy' }
+                    const cur = store.getSnapshot().list.find((x) => x.id === item.id)
+                    if (cur === undefined) return { status: 'pass' }
+                    return { status: 'handled', run: () => sender.send(cur.text) }
+                  },
+                })
+                disposers.set(item.id, off)
+              } catch (err) {
+                errors[item.id] = String(err?.message ?? err)
+              }
+            }
+            if (JSON.stringify(errors) !== JSON.stringify(store.getSnapshot().hotkeyErrors ?? {})) {
+              store.set({ hotkeyErrors: errors })
+            }
+          }
+          ctx.effect(() => {
+            sync()
+            const off = store.subscribe(sync)
+            return () => {
+              off()
+              for (const dispose of disposers.values()) dispose()
+              disposers.clear()
+            }
+          }, 'suggestions-reply: hotkeys')
+        }
       },
     }
   },

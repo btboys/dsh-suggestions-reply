@@ -27,6 +27,11 @@ The chip row above the composer lists your saved templates, aligned with the con
   - `fill` (default) — click inserts the text into the input box for manual editing and sending.
   - `send` — click sends the text immediately as an ordinary message. Send-mode chips carry an ↑ arrow and a tinted border.
 - **Manage templates** popover: add, edit, reorder (↑/↓), and delete. Each row shows a 填入/发送 (Fill/Send) badge; the edit form has a segmented *On click* control.
+- **Global hotkeys**: optionally record a combo (e.g. `Ctrl+Shift+1`) in the form's
+  shortcut field; pressing it sends the template app-wide, even while typing in the
+  composer. Combos register through DSH's shortcut registry — conflicts with existing
+  commands are rejected while recording, and the binding appears in the shortcut
+  reference. The chip shows the combo as a keycap. Hotkeys require Ctrl, Alt, or Meta.
 - **Live sync**: templates live in the Host's `suggestions_reply` storage domain (`$DSH_HOME/storages/suggestions_reply.json`), not in browser storage. Every page connected to the same Host — desktop window, browser tabs, remote Web UI — shares them and updates live over SSE; window focus also triggers a catch-up refresh. A separately launched Host process keeps its own state.
 - **Durable**: templates survive restarts and plugin upgrades. Existing templates without `sendMode` migrate to `fill` automatically.
 - **Limits**: 50 templates by default (`maxTemplates`), title 1–60 chars, text 1–4000 chars.
@@ -38,8 +43,8 @@ The agent manages the same templates through `message_templates` (same Host oper
 | Action | Arguments | Result |
 |---|---|---|
 | `list` | — | all templates with ids, ordered |
-| `add` | `title`, `text`, optional `sendMode` | the created template |
-| `update` | `id`, optional `title` / `text` / `sendMode` | the updated template |
+| `add` | `title`, `text`, optional `sendMode`, `hotkey` | the created template |
+| `update` | `id`, optional `title` / `text` / `sendMode` / `hotkey` | the updated template |
 | `remove` | `id` | `{ removed: true }` |
 
 Call `list` before `update`/`remove` to read exact ids and current content. Failures return `{ ok: false, error }`.

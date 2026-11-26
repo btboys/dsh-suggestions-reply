@@ -168,6 +168,8 @@ const templateSpec = defineDomain({
       updatedAt: zod.number(),
       /** Click behavior: fill the composer (default) or send immediately. */
       sendMode: zod.enum(['fill', 'send']).default('fill'),
+      /** Optional global hotkey that sends this template, e.g. "Ctrl+Shift+1". */
+      hotkey: zod.string().default(''),
     })),
   },
 })
@@ -185,6 +187,29 @@ function normalizeMode(mode) {
   if (mode === undefined || mode === null || mode === '') return 'fill'
   if (mode !== 'fill' && mode !== 'send') throw new Error('sendMode 需为 fill 或 send')
   return mode
+}
+
+const HOTKEY_NAMED = ['Escape', 'Tab', 'Enter', 'Backspace', 'Delete', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown']
+
+/** Validate and canonicalize a hotkey string; empty means unbound. */
+function normalizeHotkey(hotkey) {
+  const raw = typeof hotkey === 'string' ? hotkey.trim() : ''
+  if (raw === '') return ''
+  if (raw.length > 32) throw new Error('快捷键过长')
+  const parts = raw.split('+')
+  const key = parts[parts.length - 1]
+  const mods = parts.slice(0, -1)
+  const canonical = []
+  for (const m of mods) {
+    if (!['Ctrl', 'Meta', 'Alt', 'Shift'].includes(m)) throw new Error(`未知修饰键: ${m}`)
+    canonical.push(m)
+  }
+  if (!canonical.some((m) => m !== 'Shift')) throw new Error('快捷键需包含 Ctrl、Alt 或 Meta')
+  const order = ['Ctrl', 'Meta', 'Alt', 'Shift']
+  canonical.sort((a, b) => order.indexOf(a) - order.indexOf(b))
+  const keyOk = /^[A-Z]$/.test(key) || /^[0-9]$/.test(key) || /^F([1-9]|1[0-2])$/.test(key) || HOTKEY_NAMED.includes(key)
+  if (!keyOk) throw new Error(`不支持的按键: ${key}`)
+  return [...canonical, key].join('+')
 }
 
 /* ---------------- HTTP helpers ---------------- */
@@ -364,27 +389,38 @@ export async function apply(ctx, config) {
       .sort((a, b) => a.order - b.order || a.createdAt - b.createdAt)
   }
 
-  const addTemplate = async ({ title, text, sendMode } = {}) => {
+  const assertHotkeyFree = (table, hotkey, selfId) => {
+    if (hotkey === '') return
+    for (const [id, r] of table.entries()) {
+      if (id !== selfId && r.hotkey === hotkey) throw new Error(`快捷键 ${hotkey} 已被模板「${r.title}」占用`)
+    }
+  }
+
+  const addTemplate = async ({ title, text, sendMode, hotkey } = {}) => {
     const fields = validateTemplateFields(title, text)
     const mode = normalizeMode(sendMode)
+    const key = normalizeHotkey(hotkey)
     const table = await templateTable()
     const existing = [...table.entries()]
     if (existing.length >= config.maxTemplates) throw new Error(`模板数量已达上限 ${config.maxTemplates}`)
+    assertHotkeyFree(table, key, undefined)
     const id = randomUUID()
     const now = Date.now()
     const order = existing.reduce((m, [, r]) => Math.max(m, r.order), 0) + 1
-    const record = { ...fields, sendMode: mode, order, createdAt: now, updatedAt: now }
+    const record = { ...fields, sendMode: mode, hotkey: key, order, createdAt: now, updatedAt: now }
     await table.put(id, record)
     return { id, ...record }
   }
 
-  const updateTemplate = async ({ id, title, text, sendMode } = {}) => {
+  const updateTemplate = async ({ id, title, text, sendMode, hotkey } = {}) => {
     if (typeof id !== 'string' || !id) throw new Error('缺少模板 id')
     const table = await templateTable()
     const current = table.get(id)
     if (current === undefined) throw new Error('模板不存在')
     const fields = validateTemplateFields(title ?? current.title, text ?? current.text)
-    const next = { ...current, ...fields, sendMode: normalizeMode(sendMode ?? current.sendMode), updatedAt: Date.now() }
+    const key = normalizeHotkey(hotkey ?? current.hotkey)
+    assertHotkeyFree(table, key, id)
+    const next = { ...current, ...fields, sendMode: normalizeMode(sendMode ?? current.sendMode), hotkey: key, updatedAt: Date.now() }
     await table.update(id, () => next)
     return { id, ...next }
   }
@@ -544,6 +580,7 @@ export async function apply(ctx, config) {
         title: { type: 'string', description: `Short label, 1-${MAX_TITLE_CHARS} chars (add/update).` },
         text: { type: 'string', description: `Message body, 1-${MAX_TEXT_CHARS} chars (add/update).` },
         sendMode: { type: 'string', description: 'Click behavior: "fill" (default) or "send" (add/update).' },
+        hotkey: { type: 'string', description: 'Optional global send hotkey, e.g. "Ctrl+Shift+1"; must include Ctrl/Alt/Meta; empty clears it (add/update).' },
       },
       output: {
         schema: {

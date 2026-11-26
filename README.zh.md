@@ -27,6 +27,7 @@
   - `fill`（默认）—— 点击把文本填入输入框，手动编辑后发送。
   - `send` —— 点击立即作为普通消息发送；直发芯片带 ↑ 箭头与浅色描边。
 - **「管理模板」弹层**：添加、编辑、上移/下移排序、删除；列表行带「填入/发送」徽标，编辑表单内有「点击行为」分段开关。
+- **全局快捷键**：表单内的快捷键框点击后按下组合键即可录制（如 `Ctrl+Shift+1`），之后在应用任意位置（包括输入框打字时）按下即直发该模板。组合键经 DSH 快捷键注册表注册——录制时即校验与现有命令的冲突，绑定会出现在快捷键参考中；芯片上以键帽展示。快捷键须包含 Ctrl、Alt 或 Meta 之一。
 - **实时同步**：模板保存在 Host 的 `suggestions_reply` 存储域（`$DSH_HOME/storages/suggestions_reply.json`），不在浏览器本地。连接同一 Host 的所有页面——desktop 窗口、浏览器标签、远程 Web UI——共享数据并经 SSE 实时刷新；窗口重新聚焦也会补拉一次。独立启动的另一个 Host 进程各自维护状态。
 - **持久可靠**：模板跨重启、跨插件升级保留；旧模板无 `sendMode` 字段时自动迁移为 `fill`。
 - **限制**：默认上限 50 条（`maxTemplates`），标题 1–60 字符，内容 1–4000 字符。
@@ -38,8 +39,8 @@ Agent 通过 `message_templates` 工具管理同一份模板（与 UI 共用同�
 | 动作 | 参数 | 返回 |
 |---|---|---|
 | `list` | — | 全部模板（含 id，按序） |
-| `add` | `title`、`text`、可选 `sendMode` | 新建的模板 |
-| `update` | `id`、可选 `title` / `text` / `sendMode` | 更新后的模板 |
+| `add` | `title`、`text`、可选 `sendMode`、`hotkey` | 新建的模板 |
+| `update` | `id`、可选 `title` / `text` / `sendMode` / `hotkey` | 更新后的模板 |
 | `remove` | `id` | `{ removed: true }` |
 
 `update`/`remove` 前先 `list` 读取准确 id 与当前内容；失败返回 `{ ok: false, error }`。
