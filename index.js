@@ -171,6 +171,8 @@ const templateSpec = defineDomain({
       /** Optional global hotkey that sends this template, e.g. "Ctrl+Shift+1". */
       hotkey: zod.string().default(''),
     })),
+    /** One-shot marker so first-install defaults are never re-created. */
+    meta: domainTable(zod.object({ seededAt: zod.number() })),
   },
 })
 
@@ -346,6 +348,27 @@ export async function apply(ctx, config) {
   /* ---- templates: one implementation shared by the RPC route and the agent tool ---- */
 
   let domainPromise
+  /** Seed three starter templates once on a fresh install; the meta marker survives deletions. */
+  const seedDefaults = async (domain) => {
+    if (!config.templatesEnabled) return
+    const meta = domain.table('meta')
+    if (meta.get('seed') !== undefined) return
+    const templates = domain.table('templates')
+    const now = Date.now()
+    if ([...templates.keys()].length === 0) {
+      const starters = [
+        { title: '继续', text: '继续', hotkey: 'Alt+3' },
+        { title: '推送', text: '推送', hotkey: 'Alt+2' },
+        { title: '修复', text: '按review 建议修复', hotkey: 'Alt+1' },
+      ]
+      let order = 1
+      for (const starter of starters) {
+        await templates.put(randomUUID(), { ...starter, sendMode: 'send', order, createdAt: now, updatedAt: now })
+        order += 1
+      }
+    }
+    await meta.put('seed', { seededAt: now })
+  }
   /**
    * Open the template domain once per activation. The caller owns the handle
    * (the facility only closes leftovers on its own unmount), so a reload can
@@ -357,13 +380,16 @@ export async function apply(ctx, config) {
   const ensureDomain = () => (domainPromise ??= (async () => {
     for (let attempt = 0; ; attempt += 1) {
       try {
-        return await ctx.storageDomain.open(templateSpec)
+        const domain = await ctx.storageDomain.open(templateSpec)
+        await seedDefaults(domain)
+        return domain
       } catch (error) {
         if (error?.code === 'already-open' && !disposed) {
           const existing = ctx.storageDomain.get(templateSpec.name)
           if (existing !== undefined) {
             try {
               existing.table('templates').keys()
+              await seedDefaults(existing)
               return existing
             } catch {}
           }
@@ -623,4 +649,8 @@ export async function apply(ctx, config) {
     domainPromise = undefined
     if (opening !== undefined) opening.then((domain) => domain.close()).catch(() => {})
   }, 'suggestions-reply: generation lifecycle')
+
+  // Open and seed in the background so starter chips appear without user action;
+  // the domain change feed pushes the seed writes to every connected page.
+  if (config.templatesEnabled) void ensureDomain().catch(() => {})
 }

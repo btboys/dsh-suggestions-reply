@@ -34,6 +34,8 @@ The chip row above the composer lists your saved templates, aligned with the con
   reference. The chip shows the combo as a keycap. Hotkeys require Ctrl, Alt, or Meta.
 - **Live sync**: templates live in the Host's `suggestions_reply` storage domain (`$DSH_HOME/storages/suggestions_reply.json`), not in browser storage. Every page connected to the same Host — desktop window, browser tabs, remote Web UI — shares them and updates live over SSE; window focus also triggers a catch-up refresh. A separately launched Host process keeps its own state.
 - **Durable**: templates survive restarts and plugin upgrades. Existing templates without `sendMode` migrate to `fill` automatically.
+- **Starter set**: a fresh install seeds three send-mode templates — 继续 (`Alt+3`),
+  推送 (`Alt+2`), 修复 (`Alt+1`) — once; deleting them never re-creates them.
 - **Limits**: 50 templates by default (`maxTemplates`), title 1–60 chars, text 1–4000 chars.
 
 ### Agent tool
