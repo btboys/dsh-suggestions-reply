@@ -181,15 +181,15 @@ window.__ModuleLoader__.load({
 .sr-seg-btn.sr-seg-on { background: var(--dsw-alias-brand-primary); color: #fff; }
 .sr-seg-btn:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: -2px; }
 .sr-mode-badge {
-  flex: none; margin-left: 6px; padding: 0 6px; border-radius: 4px; font-size: 11px; font-weight: 400;
-  background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-secondary); vertical-align: 1px;
+  flex: none; padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 400; line-height: 1.5;
+  background: var(--dsw-alias-bg-layer-2); color: var(--dsw-alias-label-secondary);
 }
 .sr-mode-badge.sr-mode-send {
   background: color-mix(in srgb, var(--dsw-alias-brand-primary) 14%, transparent);
   color: var(--dsw-alias-brand-primary);
 }
 .sr-kbd {
-  flex: none; padding: 0 5px; border-radius: 4px; font-size: 10px; line-height: 1.6;
+  flex: none; padding: 1px 5px; border-radius: 4px; font-size: 10px; line-height: 1.5;
   border: 1px solid var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-layer-2);
   color: var(--dsw-alias-label-secondary); font-family: inherit; white-space: nowrap;
 }
@@ -208,7 +208,8 @@ window.__ModuleLoader__.load({
 .sr-row { display: flex; align-items: center; gap: 4px; padding: 6px 8px;
   border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; background: var(--dsw-alias-bg-layer-1); }
 .sr-row-main { flex: 1; min-width: 0; }
-.sr-row-title { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sr-row-title { display: flex; align-items: center; gap: 6px; font-weight: 600; min-width: 0; }
+.sr-row-title-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sr-row-text { color: var(--dsw-alias-label-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; }
 .sr-row-actions { display: flex; gap: 2px; flex: none; }
 .sr-empty { color: var(--dsw-alias-label-secondary); line-height: 1.6; padding: 8px 2px; }
@@ -514,7 +515,7 @@ window.__ModuleLoader__.load({
       const rows = snap.list.map((item, index) => h('div', { className: 'sr-row', key: item.id },
         h('div', { className: 'sr-row-main' },
           h('div', { className: 'sr-row-title', title: item.title },
-            item.title,
+            h('span', { className: 'sr-row-title-text' }, item.title),
             h('span', { className: 'sr-mode-badge' + (item.sendMode === 'send' ? ' sr-mode-send' : '') },
               item.sendMode === 'send' ? t('modeSendShort') : t('modeFillShort')),
             item.hotkey ? h('kbd', { className: 'sr-kbd' }, item.hotkey) : null),
